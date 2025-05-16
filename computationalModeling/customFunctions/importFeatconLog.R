@@ -7,10 +7,10 @@ importFeatconLog <- function(filename) {
                           strip.white = TRUE)
   
   # CHECK AGAIN
-  inputData$colFeat[inputData$csBl1 == 1 | inputData$csBl1 == 2] <- 1
-  inputData$colFeat[inputData$csBl1 == 3 | inputData$csBl1 == 4] <- 2
-  inputData$patFeat[inputData$csBl1 == 1 | inputData$csBl1 == 3] <- 1
-  inputData$patFeat[inputData$csBl1 == 2 | inputData$csBl1 == 4] <- 2
+  inputData$colFeat[inputData$cs1 == 1 | inputData$cs1 == 2] <- 1
+  inputData$colFeat[inputData$cs1 == 3 | inputData$cs1 == 4] <- 2
+  inputData$patFeat[inputData$cs1 == 1 | inputData$cs1 == 3] <- 1
+  inputData$patFeat[inputData$cs1 == 2 | inputData$cs1 == 4] <- 2
   
   return(inputData)
 

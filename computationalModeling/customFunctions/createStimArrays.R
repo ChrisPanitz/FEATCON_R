@@ -1,4 +1,4 @@
-createStimArrays <- function(inputData) {
+createStimArrays <- function(inputData, csCoding = "feature") {
   nrCS = max(inputData$csThisTime)
   nrTrials = max(inputData$trial)
   
@@ -10,7 +10,7 @@ createStimArrays <- function(inputData) {
   
   if (csCoding == "combo") {
     for (tr in 1:nrTrials) {
-      csArray[inputData$csBl1[tr],tr] <- 1
+      csArray[inputData$cs1[tr],tr] <- 1
     }
     csNames <- c("C+P+", "C+P-", "C-P+", "C-P-") # currently hard-coded for 4 CS
   }
