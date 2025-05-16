@@ -1,15 +1,36 @@
-optimizeParametersKalman <- function(empdata, expectationTime) {
+optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime, startTau, startSigma) {
 
   fitKalmanWrapper <- function(params, csArray, usArray, empData) {
-    # Unpack parameters
-    tauSq <- params[1]
-    sigmaSqR <- params[2]
-
-    # Run Kalman filter
-    model <- kalmanFilter(csArray = csArray, 
-                          usArray = usArray, 
-                          tauSq = tauSq, 
-                          sigmaSqR = sigmaSqR)
+    if (is.null(startTau)+is.null(startSigma) == 0) {
+      # Unpack parameters
+      tauSq <- params[1]
+      sigmaSqR <- params[2]
+  
+      # Run Kalman filter
+      model <- kalmanFilter(csArray = csArray, 
+                            usArray = usArray, 
+                            tauSq = tauSq, 
+                            sigmaSqR = sigmaSqR)
+    
+    } else if (is.null(startSigma)) {
+      # Unpack parameters
+      tauSq <- params[1]
+  
+      # Run Kalman filter
+      model <- kalmanFilter(csArray = csArray, 
+                            usArray = usArray, 
+                            tauSq = tauSq)
+    
+    } else if (is.null(startTau)) {
+      # Unpack parameters
+      sigmaSqR <- params[1]
+        
+      # Run Kalman filter
+      model <- kalmanFilter(csArray = csArray, 
+                            usArray = usArray, 
+                            sigmaSqR = sigmaSqR)
+      
+    }
     
     # Model predictions (outcome expectations)
     if (expectationTime == "pre") {
@@ -25,8 +46,18 @@ optimizeParametersKalman <- function(empdata, expectationTime) {
   }
 
   # Starting guesses for parameters
-  startParams <- c(tauSq = 0.01, sigmaSqR = 0.2)
-  
+  if (is.null(startTau)+is.null(startSigma) == 0) {
+    startParams <- c(tauSq = startTau, sigmaSqR = startSigma)
+    
+  } else if (is.null(startSigma)) {
+    startParams <- c(tauSq = startTau)
+    
+    
+  } else if (is.null(startTau)) {
+    startParams <- c(sigmaSqR = startSigma)
+    
+  }
+
   # Fit model
   fit <- optim(par = startParams, 
                fn = fitKalmanWrapper, 
@@ -36,6 +67,8 @@ optimizeParametersKalman <- function(empdata, expectationTime) {
                method = "L-BFGS-B",
                lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
                upper = c(1, 10))
+  
+  return(fit)
 }
 # Extract best-fitting parameters
 #fit$par
