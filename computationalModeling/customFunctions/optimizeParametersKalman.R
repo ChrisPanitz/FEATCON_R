@@ -1,33 +1,42 @@
-optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime, startTau, startSigma) {
+optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime, tauSqFixed = FALSE, sigmaSqRFixed = FALSE, tauSq, sigmaSqR, startW = NULL) {
 
+  if (tauSqFixed + sigmaSqRFixed == 2) {
+    stop("Only fixed parameters - no optimization possible. Set tauSqFixed, sigmaSqRFixed, or both to FALSE.")
+  }
+  
   fitKalmanWrapper <- function(params, csArray, usArray, empData) {
-    if (is.null(startTau)+is.null(startSigma) == 0) {
+    if (tauSqFixed + sigmaSqRFixed == 0) {
       # Unpack parameters
       tauSq <- params[1]
       sigmaSqR <- params[2]
   
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
-                            usArray = usArray, 
+                            usArray = usArray,
+                            startW = startW,
                             tauSq = tauSq, 
                             sigmaSqR = sigmaSqR)
     
-    } else if (is.null(startSigma)) {
+    } else if (sigmaSqRFixed == TRUE) {
       # Unpack parameters
       tauSq <- params[1]
   
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
                             usArray = usArray, 
-                            tauSq = tauSq)
+                            startW = startW,
+                            tauSq = tauSq,
+                            sigmaSqR = sigmaSqR)
     
-    } else if (is.null(startTau)) {
+    } else if (tauSqFixed == TRUE) {
       # Unpack parameters
       sigmaSqR <- params[1]
         
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
                             usArray = usArray, 
+                            startW = startW,
+                            tauSq = tauSq,
                             sigmaSqR = sigmaSqR)
       
     }
@@ -46,15 +55,15 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
   }
 
   # Starting guesses for parameters
-  if (is.null(startTau)+is.null(startSigma) == 0) {
-    startParams <- c(tauSq = startTau, sigmaSqR = startSigma)
+  if (tauSqFixed + sigmaSqRFixed == 0) {
+    startParams <- c(tauSq = tauSq, sigmaSqR = sigmaSqR)
     
-  } else if (is.null(startSigma)) {
-    startParams <- c(tauSq = startTau)
+  } else if (sigmaSqRFixed == TRUE) {
+    startParams <- c(tauSq = tauSq)
     
     
-  } else if (is.null(startTau)) {
-    startParams <- c(sigmaSqR = startSigma)
+  } else if (tauSqFixed == TRUE) {
+    startParams <- c(sigmaSqR = sigmaSqR)
     
   }
 
