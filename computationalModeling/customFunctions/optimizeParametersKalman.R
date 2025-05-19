@@ -75,7 +75,7 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
                empData = empData, 
                method = "L-BFGS-B",
                lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
-               upper = c(1, 10))
+               upper = c(1, 0.5))
   
   return(fit)
 }
