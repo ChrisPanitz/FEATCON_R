@@ -64,7 +64,9 @@ kalmanFilter <- function(csArray, usArray, startW = NULL, tauSq = .01, sigmaSqR 
                   outcomeExp = v,
                   outcomeExpPost = vPost,
                   predError = delta,
-                  kalmanGain = kGain)
+                  kalmanGain = kGain,
+                  tauSq = tauSq,
+                  sigmaSqR = sigmaSqR)
   
   return(outList)
 }
