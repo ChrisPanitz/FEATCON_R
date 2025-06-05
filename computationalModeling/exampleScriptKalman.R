@@ -9,37 +9,69 @@ source(paste0(parentFolder, "/computationalModeling/customFunctions/createStimAr
 source(paste0(parentFolder, "/computationalModeling/customFunctions/kalmanFilter.R"))
 source(paste0(parentFolder, "/computationalModeling/customFunctions/optimizeParametersKalman.R"))
 
+partVec = c(101,103:111)
+partDF = data.frame(partID = integer(length = length(partVec)),
+                    tauSq = double(length = length(partVec)),
+                    sigmaSqR = double(length = length(partVec)),
+                    rmse = double(length = length(partVec)),
+                    corr = double(length = length(partVec)))
 
-loadfile = paste0(parentFolder,"/computationalModeling/logfiles/105_FEATCON_logfile.txt")
-partData <- importFeatconLog(loadfile)
-partDataNoHab <- partData[partData$trial>0,]
-
-stimArrays <- createStimArrays(partData, csCoding = "feature")
-
-optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating,
-                                      csArray = stimArrays$csArray,
-                                      usArray = stimArrays$usArray,
-                                      startW = 0,
-                                      expectationTime = "post",
-                                      tauSqFixed = FALSE, sigmaSqRFixed = FALSE,
-                                      tauSq = 0.01, sigmaSqR = 0.25) # start values for optimization
-
-optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating[partDataNoHab$cs1 == 4],
-                                      csArray = stimArrays$csArray[,partDataNoHab$cs1 == 4],
-                                      usArray = stimArrays$usArray[partDataNoHab$cs1 == 4],
-                                      startW = 0,
-                                      expectationTime = "post",
-                                      tauSqFixed = FALSE, sigmaSqRFixed = FALSE,
-                                      tauSq = 0.01, sigmaSqR = 0.25) # start values for optimization
+for (partI in 1:length(partVec)) {
+  loadfile = paste0(parentFolder,"/computationalModeling/logfiles/",as.character(partVec[partI]), "_FEATCON_logfile.txt")
+  partData <- importFeatconLog(loadfile)
+  partDataNoHab <- partData[partData$trial>0,]
   
-optiParam$par
+  stimArrays <- createStimArrays(partData, csCoding = "combo")
+  
+  optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating,
+                                        csArray = stimArrays$csArray,
+                                        usArray = stimArrays$usArray,
+                                        startW = 0,
+                                        expectationTime = "post",
+                                        tauSqFixed = FALSE, sigmaSqRFixed = TRUE,
+                                        tauSq = 0.01, sigmaSqR = 0.20) # start values for optimization
+  
+  # optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating[partDataNoHab$cs1 == 4],
+  #                                       csArray = stimArrays$csArray[,partDataNoHab$cs1 == 4],
+  #                                       usArray = stimArrays$usArray[partDataNoHab$cs1 == 4],
+  #                                       startW = 0,
+  #                                       expectationTime = "post",
+  #                                       tauSqFixed = FALSE, sigmaSqRFixed = TRUE,
+  #                                       tauSq = 0.01, sigmaSqR = 0.25) # start values for optimization
+    
+  optiParam$par
+  
+  optiKalman <- kalmanFilter(csArray = stimArrays$csArray,
+                             usArray = stimArrays$usArray,
+                             startW = 0,
+                             #tauSq = 0.001, sigmaSqR = 0.20)
+                             tauSq = optiParam$par["tauSq"],
+                             sigmaSqR = 0.20) #optiParam$par["sigmaSqR"])
+  
+  ### model fit parameters ###
+  nrObs <- length(optiKalman$outcomeExpPost)
+  residuals <- partDataNoHab$contRating - optiKalman$outcomeExpPost
+  nrFreeParam <- length(optiParam$par)
+  # root of the mean squared error
+  rmse <- sqrt(mean((residuals)^2))
+  # Pearson correlation
+  corr <- cor(partDataNoHab$contRating, optiKalman$outcomeExpPost)
+  # log-likelihood
+  residVar <- var(residuals) # residual variance
+  log_likelihood <- -0.5 * nrObs * log(2 * pi * residVar) - sum(residuals^2) / (2 * residVar)
+  # Bayesian Information Criterion (BIC)
+  BIC <- nrFreeParam * log(nrObs) - 2*log_likelihood
+  
+  
+  partDF$partID[partI] <- partVec[partI]
+  partDF$tauSq[partI] <- optiParam$par["tauSq"]
+  partDF$sigmaSqR[partI] <- optiParam$par["sigmaSqR"]
+  partDF$rmse[partI] <- rmse
+  partDF$corr[partI] <- round(corr,3)
+  
+  
+} # end participant loop
 
-optiKalman <- kalmanFilter(csArray = stimArrays$csArray,
-                           usArray = stimArrays$usArray,
-                           startW = 0,
-                           #tauSq = 0.001, sigmaSqR = 0.20)
-                           tauSq = optiParam$par["tauSq"],
-                           sigmaSqR = optiParam$par["sigmaSqR"])
 
 ###
 # ggplot() +
@@ -53,8 +85,7 @@ optiKalman <- kalmanFilter(csArray = stimArrays$csArray,
 ###
 
 
-rmse <- sqrt(mean((partDataNoHab$contRating - optiKalman$outcomeExpPost)^2))
-corr <- cor(partDataNoHab$contRating, optiKalman$outcomeExpPost)
+
 corr_pp <- cor(partDataNoHab$contRating[partDataNoHab$cs1 == 1], optiKalman$outcomeExpPost[partDataNoHab$cs1 == 1])
 corr_pm <- cor(partDataNoHab$contRating[partDataNoHab$cs1 == 2], optiKalman$outcomeExpPost[partDataNoHab$cs1 == 2])
 corr_mp <- cor(partDataNoHab$contRating[partDataNoHab$cs1 == 3], optiKalman$outcomeExpPost[partDataNoHab$cs1 == 3])
@@ -63,10 +94,10 @@ corr_mm <- cor(partDataNoHab$contRating[partDataNoHab$cs1 == 4], optiKalman$outc
 
 
 # plot all trials
-# plotAllCS <- ggplot() +
-#                geom_line(aes(x = 1:160, y = scale(partDataNoHab$contRating)), color = "black") +
-#                geom_line(aes(x = 1:160, y = scale(optiKalman$outcomeExpPost)), color = "blue")
-# plotAllCS
+plotAllCS <- ggplot() +
+               geom_line(aes(x = 1:160, y = scale(partDataNoHab$contRating)), color = "black") +
+               geom_line(aes(x = 1:160, y = scale(optiKalman$outcomeExpPost)), color = "blue")
+plotAllCS
 
 
 # plot all trials
