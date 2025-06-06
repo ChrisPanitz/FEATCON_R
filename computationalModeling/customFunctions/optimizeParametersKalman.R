@@ -9,6 +9,8 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
       # Unpack parameters
       tauSq <- params[1]
       sigmaSqR <- params[2]
+      #tauSq <- exp(params[1])
+      #sigmaSqR <- exp(params[2])
   
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
@@ -20,6 +22,7 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
     } else if (sigmaSqRFixed == TRUE) {
       # Unpack parameters
       tauSq <- params[1]
+      #tauSq <- exp(params[1])
   
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
@@ -31,6 +34,7 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
     } else if (tauSqFixed == TRUE) {
       # Unpack parameters
       sigmaSqR <- params[1]
+      #sigmaSqR <- exp(params[1])
         
       # Run Kalman filter
       model <- kalmanFilter(csArray = csArray, 
@@ -50,8 +54,13 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
     }
     
     # Error metric: RMSE
-    rmse <- sqrt(mean((empData - predictions)^2))
-    return(rmse)
+    #rmse <- sqrt(mean((empData - predictions)^2))
+    #return(rmse)
+    
+    # "Error" metric: r
+    corr <- cor(empData,predictions)
+    return(1-abs(corr))
+    
   }
 
   # Starting guesses for parameters
@@ -68,14 +77,26 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
   }
 
   # Fit model
-  fit <- optim(par = startParams, 
-               fn = fitKalmanWrapper, 
-               csArray = csArray, 
-               usArray = usArray, 
-               empData = empData, 
+  fit <- optim(par = startParams,
+               fn = fitKalmanWrapper,
+               csArray = csArray,
+               usArray = usArray,
+               empData = empData,
                method = "L-BFGS-B",
+               #method = "Nelder-Mead")
                lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
                upper = c(1, 0.5))
+               #upper = c(Inf, Inf))
+  
+  # fit <- optim(par = log(startParams),
+  #              fn = fitKalmanWrapper,
+  #              csArray = csArray,
+  #              usArray = usArray,
+  #              empData = empData,
+  #              #method = "L-BFGS-B",
+  #              method = "Nelder-Mead",
+  #              lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
+  #              upper = c(1, 0.5))
   
   return(fit)
 }
