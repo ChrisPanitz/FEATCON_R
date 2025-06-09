@@ -13,10 +13,11 @@ partVec = c(101,103:111)
 partDF = data.frame(partID = integer(length = length(partVec)),
                     tauSq = double(length = length(partVec)),
                     sigmaSqR = double(length = length(partVec)),
+                    startW = double(length = length(partVec)),
                     rmse = double(length = length(partVec)),
                     corr = double(length = length(partVec)))
 
-for (partI in 1:length(partVec)) {
+for (partI in 1){#:length(partVec)) {
   loadfile = paste0(parentFolder,"/computationalModeling/logfiles/",as.character(partVec[partI]), "_FEATCON_logfile.txt")
   partData <- importFeatconLog(loadfile)
   partDataNoHab <- partData[partData$trial>0,]
@@ -26,27 +27,19 @@ for (partI in 1:length(partVec)) {
   optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating,
                                         csArray = stimArrays$csArray,
                                         usArray = stimArrays$usArray,
-                                        startW = 0,
                                         expectationTime = "post",
-                                        tauSqFixed = FALSE, sigmaSqRFixed = TRUE,
-                                        tauSq = 0.01, sigmaSqR = 0.20) # start values for optimization
+                                        optimCriterion = "corr",
+                                        maxIterations = 100,
+                                        tauSqFixed = FALSE, startWFixed = FALSE, sigmaSqRFixed = TRUE, 
+                                        tauSqBound = c(1e-6,1), startWBound = c(1e-6,1), sigmaSqR = 0.20)
   
-  # optiParam <- optimizeParametersKalman(empData = partDataNoHab$contRating[partDataNoHab$cs1 == 4],
-  #                                       csArray = stimArrays$csArray[,partDataNoHab$cs1 == 4],
-  #                                       usArray = stimArrays$usArray[partDataNoHab$cs1 == 4],
-  #                                       startW = 0,
-  #                                       expectationTime = "post",
-  #                                       tauSqFixed = FALSE, sigmaSqRFixed = TRUE,
-  #                                       tauSq = 0.01, sigmaSqR = 0.25) # start values for optimization
-    
-  optiParam$par
+  optiParam$optim$bestmem
   
   optiKalman <- kalmanFilter(csArray = stimArrays$csArray,
                              usArray = stimArrays$usArray,
-                             startW = 0,
-                             #tauSq = 0.001, sigmaSqR = 0.20)
-                             tauSq = optiParam$par["tauSq"],
-                             sigmaSqR = 0.20) #optiParam$par["sigmaSqR"])
+                             tauSq = optiParam$optim$bestmem["tauSq"],
+                             sigmaSqR = 0.20,
+                             startW = optiParam$optim$bestmem["startW"])
   
   ### model fit parameters ###
   nrObs <- length(optiKalman$outcomeExpPost)
@@ -64,8 +57,9 @@ for (partI in 1:length(partVec)) {
   
   
   partDF$partID[partI] <- partVec[partI]
-  partDF$tauSq[partI] <- optiParam$par["tauSq"]
-  partDF$sigmaSqR[partI] <- optiParam$par["sigmaSqR"]
+  partDF$tauSq[partI] <- optiParam$optim$bestmem["tauSq"]
+  partDF$sigmaSqR[partI] <- optiParam$optim$bestmem["sigmaSqR"]
+  partDF$startW[partI] <- optiParam$optim$bestmem["startW"]
   partDF$rmse[partI] <- rmse
   partDF$corr[partI] <- round(corr,3)
   
