@@ -2,11 +2,13 @@ createStimArrays <- function(inputData, csCoding = "feature") {
   nrCS = max(inputData$csThisTime)
   nrTrials = max(inputData$trial)
   
-  usArray <- inputData$us[(nrCS+1):(nrTrials+nrCS)]
-  csArray <- array(0, dim = c(nrCS, nrTrials))
-  
   startingWeights <- inputData$contRating[1:nrCS] # only makes sense for combo coding
   startingWeights <- startingWeights[order(inputData$csThisTime[1:nrCS])]
+  
+  inputData <- inputData[inputData$trial>0,]
+  
+  usArray <- inputData$us#[(nrCS+1):(nrTrials+nrCS)]
+  csArray <- array(0, dim = c(nrCS, nrTrials))
   
   if (csCoding == "combo") {
     for (tr in 1:nrTrials) {
