@@ -1,49 +1,49 @@
-optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime, tauSqFixed = FALSE, sigmaSqRFixed = FALSE, tauSq, sigmaSqR, startW = NULL) {
+optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
+                                     optimCriterion = "corr", maxIterations = 200,
+                                     tauSqFixed = FALSE, sigmaSqRFixed = FALSE, startWFixed = FALSE,
+                                     tauSq = 0.01, sigmaSqR = 1, startW = 0,
+                                     tauSqBound = c(1e-6,1), sigmsSqRBound = c(1e-6,1), startWBound = c(1e-6,1)) {
 
-  if (tauSqFixed + sigmaSqRFixed == 2) {
-    stop("Only fixed parameters - no optimization possible. Set tauSqFixed, sigmaSqRFixed, or both to FALSE.")
+  # only run if there is at least one free parameter
+  if (tauSqFixed + sigmaSqRFixed + startWFixed == 3) {
+    stop("Only fixed parameters - no optimization possible. Set at least on of tauSqFixed, sigmaSqRFixed, and startWFixed to FALSE.")
   }
   
+  # load DEoptim package
+  library(DEoptim)
+  
+  # check what parameters are free and list parameter names + boundaries
+  paramNames <- NULL
+  lowerBounds <- NULL
+  upperBounds <- NULL
+  
+  if (tauSqFixed == FALSE) {
+    paramNames <- c(paramNames, "tauSq")
+    lowerBounds <- c(lowerBounds, tauSqBound[1])
+    upperBounds <- c(upperBounds, tauSqBound[2])}
+  if (sigmaSqRFixed == FALSE) {
+    paramNames <- c(paramNames, "sigmaSqR")
+    lowerBounds <- c(lowerBounds, sigmaSqRBound[1])
+    upperBounds <- c(upperBounds, sigmaSqRBound[2])}
+  if (startWFixed == FALSE) {
+    paramNames <- c(paramNames, "startW")
+    lowerBounds <- c(lowerBounds, startWBound[1])
+    upperBounds <- c(upperBounds, startWBound[2])}
+  
+  # define wrapper function to run DEoptim on Kalman filter function
   fitKalmanWrapper <- function(params, csArray, usArray, empData) {
-    if (tauSqFixed + sigmaSqRFixed == 0) {
-      # Unpack parameters
-      tauSq <- params[1]
-      sigmaSqR <- params[2]
-      #tauSq <- exp(params[1])
-      #sigmaSqR <- exp(params[2])
-  
-      # Run Kalman filter
-      model <- kalmanFilter(csArray = csArray, 
-                            usArray = usArray,
-                            startW = startW,
-                            tauSq = tauSq, 
-                            sigmaSqR = sigmaSqR)
-    
-    } else if (sigmaSqRFixed == TRUE) {
-      # Unpack parameters
-      tauSq <- params[1]
-      #tauSq <- exp(params[1])
-  
-      # Run Kalman filter
-      model <- kalmanFilter(csArray = csArray, 
-                            usArray = usArray, 
-                            startW = startW,
-                            tauSq = tauSq,
-                            sigmaSqR = sigmaSqR)
-    
-    } else if (tauSqFixed == TRUE) {
-      # Unpack parameters
-      sigmaSqR <- params[1]
-      #sigmaSqR <- exp(params[1])
-        
-      # Run Kalman filter
-      model <- kalmanFilter(csArray = csArray, 
-                            usArray = usArray, 
-                            startW = startW,
-                            tauSq = tauSq,
-                            sigmaSqR = sigmaSqR)
+    nrPar <- 1
+    if (tauSqFixed == FALSE) {tauSq <- params[nrPar]; nrPar <- nrPar+1}
+    if (sigmaSqRFixed == FALSE) {sigmaSqR <- params[nrPar]; nrPar <- nrPar+1}
+    if (startWFixed == FALSE) {startW <- params[nrPar]}
       
-    }
+
+    # Run Kalman filter
+    model <- kalmanFilter(csArray = csArray,
+                          usArray = usArray,
+                          startW = startW,
+                          tauSq = tauSq,
+                          sigmaSqR = sigmaSqR)
     
     # Model predictions (outcome expectations)
     if (expectationTime == "pre") {
@@ -53,59 +53,29 @@ optimizeParametersKalman <- function(empData, csArray, usArray, expectationTime,
       predictions <- model$outcomeExpPost
     }
     
-    # Error metric: RMSE
-    #rmse <- sqrt(mean((empData - predictions)^2))
-    #return(rmse)
-    
-    # "Error" metric: r
-    corr <- cor(empData,predictions)
-    return(1-abs(corr))
-    
-  }
-
-  # Starting guesses for parameters
-  if (tauSqFixed + sigmaSqRFixed == 0) {
-    startParams <- c(tauSq = tauSq, sigmaSqR = sigmaSqR)
-    
-  } else if (sigmaSqRFixed == TRUE) {
-    startParams <- c(tauSq = tauSq)
-    
-    
-  } else if (tauSqFixed == TRUE) {
-    startParams <- c(sigmaSqR = sigmaSqR)
-    
+    # Return what metric to optimize?
+    if (optimCriterion == "rmse") {
+      # Error metric: RMSE
+      rmse <- sqrt(mean((empData - predictions)^2))
+      return(rmse)      
+    }
+    else if (optimCriterion == "corr") { 
+      # "Error" metric: r
+      corr <- cor(empData,predictions)
+      return(1-abs(corr))
+    }
   }
 
   # Fit model
-  fit <- optim(par = startParams,
-               fn = fitKalmanWrapper,
-               csArray = csArray,
-               usArray = usArray,
-               empData = empData,
-               method = "L-BFGS-B",
-               #method = "Nelder-Mead")
-               lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
-               upper = c(1, 0.5))
-               #upper = c(Inf, Inf))
+  fit <- DEoptim(fn = fitKalmanWrapper,
+                 csArray = csArray,
+                 usArray = usArray,
+                 empData = empData,
+                 lower = lowerBounds,
+                 upper = upperBounds,
+                 control = list(itermax = maxIterations))
+
   
-  # fit <- optim(par = log(startParams),
-  #              fn = fitKalmanWrapper,
-  #              csArray = csArray,
-  #              usArray = usArray,
-  #              empData = empData,
-  #              #method = "L-BFGS-B",
-  #              method = "Nelder-Mead",
-  #              lower = c(1e-6, 1e-6),  # prevent negative diffusion parameter and variances
-  #              upper = c(1, 0.5))
-  
+  names(fit$optim$bestmem) <- paramNames
   return(fit)
 }
-# Extract best-fitting parameters
-#fit$par
-
-#checkResults <- kalmanFilter(csArray = csArray, usArray = usArray, tauSq = fit$par["tauSq"], sigmaSqR = fit$par["sigmaSqR"])
-
-#cor.test(x = checkResults$outcomeExpPost, y = empData)
-#ggplot() +
-#  geom_line(aes(x = 1:length(checkResults$outcomeExpPost), y = scale(checkResults$outcomeExpPost)), color = "red") +
-#  geom_line(aes(x = 1:length(empData), y = scale(empData)), color = "green") 
