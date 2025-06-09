@@ -1,6 +1,6 @@
 ### KALMAN FILTER SCRIPT ###
 # Written based on formulas in Gershman (2015, PLoS Computational Biology)
-kalmanFilter <- function(csArray, usArray, startW = NULL, tauSq = .01, sigmaSqR = 0.20, sigmaSqW = 1, csNames = NULL) {
+kalmanFilter <- function(csArray, usArray, startW = 0, tauSq = 0.01, sigmaSqR = 1, sigmaSqW = 1, csNames = NULL) {
   # defaults taken from Gershman (2015)
   
   ## initializing variables
@@ -12,10 +12,10 @@ kalmanFilter <- function(csArray, usArray, startW = NULL, tauSq = .01, sigmaSqR 
   # covMat = variances and covariances of CS
   covMat <- array(data = NA, dim = c(nrCS,nrCS,nrTrials+1))
 
-  # initial associative strengths set to 0
-  if (is.null(startW)) {
-    startW <- rep(0,nrCS)
-  }
+  ## initial associative strengths set to 0
+  #if (is.null(startW)) {
+  #  startW <- rep(0,nrCS)
+  #}
   if (is.null(csNames)) {
     csNames <- c()
     for (i in 1:nrCS) {csNames[i] <- paste0("cs",i)}
@@ -32,7 +32,7 @@ kalmanFilter <- function(csArray, usArray, startW = NULL, tauSq = .01, sigmaSqR 
   v <- array(NA, dim = nrTrials)
   vPost <- array(NA, dim = nrTrials)
   # prediction error
-  delta <- array(NA, dim = nrTrials+1)
+  delta <- array(NA, dim = nrTrials)
 
   for (i in 1:nrTrials) {
     # compute Kalman gains (Gershman: Formula (11))
